@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-image {
+  border-radius: 50%;
+  width: 120px;
+  height: 130px;
+  margin-bottom: 20px;
+}
+
+.profile-details {
+  text-align: left;
+  width: 100%;
+  max-width: 300px; /* adjust as needed */
+}
+.user_name span {
+  text-transform: uppercase;
+  font-weight: 600;
+}
