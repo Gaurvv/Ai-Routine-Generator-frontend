@@ -16,11 +16,18 @@ function Login() {
                 localStorage.removeItem('auth_token');
             }
         }
-    }, [navigate]);
+    }, [navigate]); 
     
-    const loginWithGoogle = () => {
-        window.location.href = import.meta.env.VITE_GOOGLE_LINK;
-    };
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+const accessToken = hashParams.get("access_token");
+
+if (accessToken) {
+  handleGoogleLogin(accessToken);
+} else if (token?.access) {
+  fetchUserProfile(token);
+} else {
+  navigate("/login"); // ← This fires when there's no token AND no hash
+}
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
