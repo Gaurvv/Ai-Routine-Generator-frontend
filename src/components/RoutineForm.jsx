@@ -65,7 +65,7 @@ export default function RoutineForm() {
     setData({ ...data, fixed_works: [...data.fixed_works, { name: "", start_time: "", end_time: "" }] });
   };
 
-  const removeFixed = (index) => {
+  const removeFixed = (index) => { 
     setData({ ...data, fixed_works: data.fixed_works.filter((_, i) => i !== index) });
   };
 
