@@ -16,8 +16,8 @@ function Home() {
   useEffect(() => {
     const storedToken = localStorage.getItem("auth_token");
     let token = null;
-    
-    if (storedToken && storedToken !== 'undefined' && storedToken !== 'null') {
+
+    if (storedToken && storedToken !== "undefined" && storedToken !== "null") {
       try {
         token = JSON.parse(storedToken);
       } catch (err) {
@@ -25,12 +25,14 @@ function Home() {
       }
     }
 
-    const REFRESH_INTERVAL = 1000 * 60 * 4; // 4 minutes
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get("access_token");
+    const REFRESH_INTERVAL = 1000 * 60 * 4;
 
-    if (accessToken) {
-      handleGoogleLogin(accessToken);
+    // Code flow returns ?code=... as query param
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (code) {
+      handleGoogleLogin(code);
     } else if (token?.access) {
       fetchUserProfile(token);
     } else {
@@ -68,20 +70,23 @@ function Home() {
     }
   };
 
-  const handleGoogleLogin = async (accessToken) => {
-    console.log("🔑 Access Token from Google:", accessToken);
-    
+  const handleGoogleLogin = async (code) => {
+    console.log("🔑 Code from Google:", code);
+
     try {
       console.log("📡 Calling backend API:", GOOGLELOGIN_API);
-      
+
       const response = await fetch(GOOGLELOGIN_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: accessToken }),
+        body: JSON.stringify({
+          code,
+          redirect_uri: "https://routiney-generator.netlify.app/",
+        }),
       });
 
       console.log("📥 Response Status:", response.status);
-      
+
       const data = await response.json();
       console.log("📦 Response Data:", data);
 
@@ -153,7 +158,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
       <Navbar user={user} onLogout={logout} />
-      
+
       {showLanding ? (
         /* LANDING PAGE */
         <div className="relative overflow-hidden">
@@ -180,15 +185,26 @@ function Home() {
                 !
               </h1>
               <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-                Let AI optimize your daily routine. Create personalized schedules that maximize productivity and balance.
+                Let AI optimize your daily routine. Create personalized
+                schedules that maximize productivity and balance.
               </p>
               <button
                 onClick={() => setShowLanding(false)}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-lg"
               >
                 Create Your Routine
-                <svg className="inline-block w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                <svg
+                  className="inline-block w-5 h-5 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
                 </svg>
               </button>
             </div>
@@ -198,39 +214,78 @@ function Home() {
               {/* Feature 1 */}
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  <svg
+                    className="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Smart AI Planning</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  Smart AI Planning
+                </h3>
                 <p className="text-gray-600">
-                  Our AI analyzes your schedule and creates optimized routines that fit your lifestyle perfectly.
+                  Our AI analyzes your schedule and creates optimized routines
+                  that fit your lifestyle perfectly.
                 </p>
               </div>
 
               {/* Feature 2 */}
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Flexible Scheduling</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  Flexible Scheduling
+                </h3>
                 <p className="text-gray-600">
-                  Set fixed commitments and flexible tasks. AI finds the perfect time slots for everything.
+                  Set fixed commitments and flexible tasks. AI finds the
+                  perfect time slots for everything.
                 </p>
               </div>
 
               {/* Feature 3 */}
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <svg
+                    className="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Productivity Boost</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  Productivity Boost
+                </h3>
                 <p className="text-gray-600">
-                  Maximize your efficiency with data-driven scheduling that balances work and rest.
+                  Maximize your efficiency with data-driven scheduling that
+                  balances work and rest.
                 </p>
               </div>
             </div>
@@ -242,7 +297,9 @@ function Home() {
                   <div className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
                     AI
                   </div>
-                  <p className="text-gray-600 font-medium">Powered Intelligence</p>
+                  <p className="text-gray-600 font-medium">
+                    Powered Intelligence
+                  </p>
                 </div>
                 <div>
                   <div className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
@@ -254,7 +311,9 @@ function Home() {
                   <div className="text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
                     ∞
                   </div>
-                  <p className="text-gray-600 font-medium">Unlimited Routines</p>
+                  <p className="text-gray-600 font-medium">
+                    Unlimited Routines
+                  </p>
                 </div>
               </div>
             </div>
@@ -268,8 +327,18 @@ function Home() {
               onClick={() => setShowLanding(true)}
               className="flex items-center gap-2 text-gray-600 hover:text-purple-600 font-medium transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
               </svg>
               Back to Home
             </button>
