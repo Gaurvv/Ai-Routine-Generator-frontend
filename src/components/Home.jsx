@@ -13,69 +13,41 @@ function Home() {
   const BLACKLIST_API = import.meta.env.VITE_BLACKLIST;
   const REFRESHTOKEN_API = import.meta.env.VITE_REFRESHTOKEN;
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem("auth_token");
-    let token = null;
-
-    if (storedToken && storedToken !== "undefined" && storedToken !== "null") {
+  // Defined outside useEffect so logout button in Navbar can call it
+  const logout = () => {
+    const raw = localStorage.getItem("auth_token");
+    localStorage.removeItem("auth_token");
+    if (raw) {
       try {
-        token = JSON.parse(storedToken);
-      } catch (err) {
-        localStorage.removeItem("auth_token");
-      }
+        const token = JSON.parse(raw);
+        fetch(BLACKLIST_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: token?.refresh }),
+        }).catch((err) => console.error("Error blacklisting token:", err));
+      } catch {}
     }
-
-    const REFRESH_INTERVAL = 1000 * 60 * 4;
-
-    // Code flow returns ?code=... as query param
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-
-    if (code) {
-      handleGoogleLogin(code);
-    } else if (token?.access) {
-      fetchUserProfile(token);
-    } else {
-      navigate("/login");
-    }
-
-    const intervalId = setInterval(() => {
-      const storedToken = localStorage.getItem("auth_token");
-      if (storedToken) {
-        try {
-          const token = JSON.parse(storedToken);
-          if (token?.refresh) {
-            updateToken(token);
-          }
-        } catch (err) {
-          console.error("Error parsing Token:", err);
-        }
-      }
-    }, REFRESH_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, []);
+    navigate("/login");
+  };
 
   const fetchUserProfile = async (token) => {
     try {
       const response = await fetch(USERME_API, {
-        headers: {
-          Authorization: `Bearer ${token?.access}`,
-        },
+        headers: { Authorization: `Bearer ${token?.access}` },
       });
+      if (!response.ok) throw new Error("Unauthorized");
       const data = await response.json();
       setUser(data);
     } catch {
+      localStorage.removeItem("auth_token");
       navigate("/login");
     }
   };
 
   const handleGoogleLogin = async (code) => {
     console.log("🔑 Code from Google:", code);
-
     try {
       console.log("📡 Calling backend API:", GOOGLELOGIN_API);
-
       const response = await fetch(GOOGLELOGIN_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,9 +56,7 @@ function Home() {
           redirect_uri: "https://routiney-generator.netlify.app/",
         }),
       });
-
       console.log("📥 Response Status:", response.status);
-
       const data = await response.json();
       console.log("📦 Response Data:", data);
 
@@ -105,44 +75,90 @@ function Home() {
     }
   };
 
-  const blacklisttoken = async (token) => {
-    try {
-      await fetch(BLACKLIST_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh: token?.refresh }),
-      });
-    } catch (err) {
-      console.error("Error blacklisting token:", err);
-    }
-  };
+  useEffect(() => {
+    // ── 1. Read token once on mount ──
+    const storedToken = localStorage.getItem("auth_token");
+    let token = null;
 
-  const logout = () => {
-    const token = JSON.parse(localStorage.getItem("auth_token"));
-    localStorage.removeItem("auth_token");
-    blacklisttoken(token);
-    navigate("/login");
-  };
-
-  const updateToken = async (token) => {
-    try {
-      const response = await fetch(REFRESHTOKEN_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh: token?.refresh }),
-      });
-
-      const data = await response.json();
-      if (response.status === 200) {
-        const updatedToken = { ...token, access: data.access };
-        localStorage.setItem("auth_token", JSON.stringify(updatedToken));
-      } else {
-        logout();
+    if (storedToken && storedToken !== "undefined" && storedToken !== "null") {
+      try {
+        token = JSON.parse(storedToken);
+      } catch {
+        localStorage.removeItem("auth_token");
       }
-    } catch {
-      logout();
     }
-  };
+
+    // ── 2. Handle OAuth code redirect or normal load ──
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (code) {
+      handleGoogleLogin(code);
+    } else if (token?.access) {
+      fetchUserProfile(token);
+    } else {
+      navigate("/login");
+    }
+
+    // ── 3. Token refresh interval ──
+    // All refresh logic is self-contained here to avoid stale closures.
+    // We do NOT reference updateToken/logout from outer scope.
+    const REFRESH_INTERVAL = 1000 * 60 * 4; // 4 minutes
+
+    const intervalId = setInterval(async () => {
+      const raw = localStorage.getItem("auth_token");
+
+      if (!raw) {
+        clearInterval(intervalId);
+        navigate("/login");
+        return;
+      }
+
+      let currentToken = null;
+      try {
+        currentToken = JSON.parse(raw);
+      } catch {
+        localStorage.removeItem("auth_token");
+        clearInterval(intervalId);
+        navigate("/login");
+        return;
+      }
+
+      if (!currentToken?.refresh) {
+        localStorage.removeItem("auth_token");
+        clearInterval(intervalId);
+        navigate("/login");
+        return;
+      }
+
+      try {
+        const response = await fetch(REFRESHTOKEN_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: currentToken.refresh }),
+        });
+
+        if (response.status === 200) {
+          const data = await response.json();
+          const updatedToken = { ...currentToken, access: data.access };
+          localStorage.setItem("auth_token", JSON.stringify(updatedToken));
+          console.log("🔄 Token refreshed successfully");
+        } else {
+          // Refresh token expired or revoked
+          console.warn("⚠️ Token refresh failed, status:", response.status);
+          localStorage.removeItem("auth_token");
+          clearInterval(intervalId);
+          navigate("/login");
+        }
+      } catch (err) {
+        console.error("❌ Token refresh network error:", err);
+        // Don't log out on network errors — user might just be offline briefly
+        // Only clear token on explicit auth failures (handled above)
+      }
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, []); // ← empty deps: runs once on mount
 
   if (!user) {
     return (
@@ -214,23 +230,11 @@ function Home() {
               {/* Feature 1 */}
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                    />
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                  Smart AI Planning
-                </h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Smart AI Planning</h3>
                 <p className="text-gray-600">
                   Our AI analyzes your schedule and creates optimized routines
                   that fit your lifestyle perfectly.
@@ -240,23 +244,11 @@ function Home() {
               {/* Feature 2 */}
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                  Flexible Scheduling
-                </h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Flexible Scheduling</h3>
                 <p className="text-gray-600">
                   Set fixed commitments and flexible tasks. AI finds the
                   perfect time slots for everything.
@@ -266,23 +258,11 @@ function Home() {
               {/* Feature 3 */}
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                  Productivity Boost
-                </h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Productivity Boost</h3>
                 <p className="text-gray-600">
                   Maximize your efficiency with data-driven scheduling that
                   balances work and rest.
@@ -297,9 +277,7 @@ function Home() {
                   <div className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
                     AI
                   </div>
-                  <p className="text-gray-600 font-medium">
-                    Powered Intelligence
-                  </p>
+                  <p className="text-gray-600 font-medium">Powered Intelligence</p>
                 </div>
                 <div>
                   <div className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
@@ -311,9 +289,7 @@ function Home() {
                   <div className="text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
                     ∞
                   </div>
-                  <p className="text-gray-600 font-medium">
-                    Unlimited Routines
-                  </p>
+                  <p className="text-gray-600 font-medium">Unlimited Routines</p>
                 </div>
               </div>
             </div>
@@ -327,18 +303,8 @@ function Home() {
               onClick={() => setShowLanding(true)}
               className="flex items-center gap-2 text-gray-600 hover:text-purple-600 font-medium transition-colors"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
               Back to Home
             </button>
