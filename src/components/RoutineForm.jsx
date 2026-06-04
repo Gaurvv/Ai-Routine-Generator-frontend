@@ -91,7 +91,7 @@ export default function RoutineForm() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/routine/generate/",
+        "https://ai-routine-generator-backend-1.onrender.com/api/routine/generate/",
         data,
         { headers: { Authorization: `Bearer ${token.access}` } }
       );
