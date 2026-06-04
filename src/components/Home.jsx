@@ -48,7 +48,7 @@ function Home() {
             updateToken(token);
           }
         } catch (err) {
-          console.error("Error parsing token:", err);
+          console.error("Error parsing Token:", err);
         }
       }
     }, REFRESH_INTERVAL);
