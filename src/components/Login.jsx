@@ -53,7 +53,7 @@ function Login() {
                 <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
                     <div className="text-center mb-6">
                         <h2 className="text-2xl font-semibold text-white mb-2">
-                            Welcome Back
+                            Welcome
                         </h2>
                         <p className="text-blue-200/60">
                             Sign in to create your optimized routine
