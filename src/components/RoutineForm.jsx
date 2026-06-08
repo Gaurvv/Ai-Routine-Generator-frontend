@@ -1,6 +1,8 @@
 import { useState } from "react";
 import axios from "axios";
 
+
+
 function parseRoutineToTable(text) {
   const rows = [];
   const lines = text.split("\n").filter((l) => l.trim());
@@ -53,6 +55,31 @@ const LEGEND = [
   { label: "Other",          dot: "#888780" },
 ];
 
+const STORAGE_KEY = "routiney:saved_routines_v1";
+
+function safeJsonParse(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function loadSavedRoutines() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const parsed = safeJsonParse(raw, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function persistSavedRoutines(next) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+}
+
+function createRoutineId() {
+  // Combines timestamp + random for uniqueness without deps
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
 export default function RoutineForm() {
   const [data, setData] = useState({
     wake_time: "",
@@ -62,6 +89,7 @@ export default function RoutineForm() {
   });
 
   const [aiRoutine, setAiRoutine]     = useState("");
+  const [storageError, setStorageError] = useState("");
   const [parsedRows, setParsedRows]   = useState([]);
   const [tableHeaders, setTableHeaders] = useState([]);
   const [loading, setLoading]         = useState(false);
@@ -110,7 +138,19 @@ export default function RoutineForm() {
       if (response.data.success) {
         const raw = response.data.ai_routine;
         setAiRoutine(raw);
+
+        // Persist in browser (localStorage)
+        const nextRoutines = loadSavedRoutines();
+        nextRoutines.unshift({
+          id: createRoutineId(),
+          createdAt: new Date().toISOString(),
+          aiRoutine: raw,
+        });
+        persistSavedRoutines(nextRoutines);
+
         const rows = parseRoutineToTable(raw);
+
+
         if (rows.length > 0) {
           const firstRow = rows[0];
           const looksLikeHeader = firstRow.some((c) =>
