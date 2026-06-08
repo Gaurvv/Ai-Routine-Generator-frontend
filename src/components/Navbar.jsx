@@ -104,10 +104,10 @@ export default function Navbar({ user, onLogout }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
-                    <div>
+                    {/* <div>
                       <p className="font-semibold text-gray-800">My Profile</p>
                       <p className="text-xs text-gray-500">View and edit details</p>
-                    </div>
+                    </div> */}
                   </button>
 
                   <button
@@ -125,7 +125,7 @@ export default function Navbar({ user, onLogout }) {
                     <Link to = "/savedRoutines">
                     <div>
                       <p className="font-semibold text-gray-800">My Routines</p>
-                      {/* <p className="text-xs text-gray-500">View saved schedules</p> */}
+                      <p className="text-xs text-gray-500">View saved schedules</p>
                     </div>
                     </Link>
                   </button>
@@ -143,10 +143,10 @@ export default function Navbar({ user, onLogout }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
-                    <div>
+                    {/* <div>
                       <p className="font-semibold text-gray-800">Settings</p>
                       <p className="text-xs text-gray-500">Preferences & privacy</p>
-                    </div>
+                    </div> */}
                   </button>
                 </div>
 
