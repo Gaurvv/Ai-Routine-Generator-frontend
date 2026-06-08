@@ -11,7 +11,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
-          <Route path="savedRoutines" element={<SavedRoutines />} />
+          <Route path="/savedRoutines" element={<SavedRoutines user={user} onLogout={handleLogout} />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
         </Routes>
     </Router>
