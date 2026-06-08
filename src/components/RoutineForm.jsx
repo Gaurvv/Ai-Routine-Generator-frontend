@@ -1,6 +1,8 @@
 import { useState } from "react";
 import axios from "axios";
 
+const BACKEND = "https://ai-routine-generator-backend-1.onrender.com";
+
 export default function RoutineForm({ user }) {
   const [data, setData] = useState({
     wake_time: "",
@@ -18,7 +20,6 @@ export default function RoutineForm({ user }) {
   const [error, setError] = useState("");
   const [saveError, setSaveError] = useState("");
 
-  /* ── helpers ── */
   const addFixed = () =>
     setData({ ...data, fixed_works: [...data.fixed_works, { name: "", start_time: "", end_time: "" }] });
 
@@ -106,7 +107,7 @@ export default function RoutineForm({ user }) {
     try {
       const token = JSON.parse(localStorage.getItem("auth_token"));
       const response = await axios.post(
-        import.meta.env.VITE_GENERATE_ROUTINE,
+        `${BACKEND}/api/routine/generate/`,
         data,
         { headers: { Authorization: `Bearer ${token.access}` } }
       );
@@ -147,7 +148,7 @@ export default function RoutineForm({ user }) {
     try {
       const token = JSON.parse(localStorage.getItem("auth_token"));
       await axios.post(
-        import.meta.env.VITE_SAVED_ROUTINES,
+        `${BACKEND}/api/routines/`,
         { ai_routine: aiRoutine },
         { headers: { Authorization: `Bearer ${token.access}` } }
       );
@@ -395,9 +396,7 @@ export default function RoutineForm({ user }) {
               {/* Save button + error */}
               <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
                 <div>
-                  {saveError && (
-                    <p className="text-xs text-red-500">{saveError}</p>
-                  )}
+                  {saveError && <p className="text-xs text-red-500">{saveError}</p>}
                 </div>
                 <button
                   onClick={handleSave}
@@ -436,7 +435,6 @@ export default function RoutineForm({ user }) {
 
               {parsedRows.length > 0 ? (
                 <>
-                  {/* Legend */}
                   <div className="flex flex-wrap gap-2 sm:gap-3 mb-4">
                     {LEGEND.map(({ label, dot }) => (
                       <span key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -445,8 +443,6 @@ export default function RoutineForm({ user }) {
                       </span>
                     ))}
                   </div>
-
-                  {/* Table */}
                   <div className="bg-white rounded-xl overflow-hidden border border-purple-100 shadow-sm overflow-x-auto -mx-1">
                     <table className="w-full text-sm border-collapse min-w-[420px]">
                       <thead>

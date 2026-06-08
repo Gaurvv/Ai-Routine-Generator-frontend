@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import NavBar from "./Navbar";
 
+const BACKEND = "https://ai-routine-generator-backend-1.onrender.com";
+
 function parseRoutineToTable(text) {
   const rows = [];
   const lines = text.split("\n").filter((l) => l.trim());
@@ -86,7 +88,6 @@ function RoutineCard({ routine, onDelete }) {
 
   return (
     <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-4 sm:p-6 border-2 border-purple-200 shadow-sm">
-
       {/* Card header */}
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <div className="flex items-center gap-3">
@@ -187,9 +188,6 @@ const SavedRoutines = () => {
   const [fetchError, setFetchError] = useState("");
   const navigate = useNavigate();
 
-  const BLACKLIST_API = import.meta.env.VITE_BLACKLIST;
-  const SAVED_ROUTINES_API = import.meta.env.VITE_SAVED_ROUTINES;
-
   // Auth: fetch user on mount
   useEffect(() => {
     const raw = localStorage.getItem("auth_token");
@@ -201,7 +199,7 @@ const SavedRoutines = () => {
 
     if (!token?.access) { navigate("/login"); return; }
 
-    fetch(import.meta.env.VITE_USERME, {
+    fetch(`${BACKEND}/api/user/me/`, {
       headers: { Authorization: `Bearer ${token.access}` },
     })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
@@ -209,13 +207,13 @@ const SavedRoutines = () => {
       .catch(() => { localStorage.removeItem("auth_token"); navigate("/login"); });
   }, []);
 
-  // Fetch routines from backend once user is loaded
+  // Fetch routines once user is loaded
   useEffect(() => {
     if (!user) return;
     const token = JSON.parse(localStorage.getItem("auth_token"));
     setLoadingRoutines(true);
     setFetchError("");
-    fetch(SAVED_ROUTINES_API, {
+    fetch(`${BACKEND}/api/routines/`, {
       headers: { Authorization: `Bearer ${token.access}` },
     })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
@@ -230,7 +228,7 @@ const SavedRoutines = () => {
     if (raw) {
       try {
         const token = JSON.parse(raw);
-        fetch(BLACKLIST_API, {
+        fetch(`${BACKEND}/api/token/blacklist/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh: token?.refresh }),
@@ -243,7 +241,7 @@ const SavedRoutines = () => {
   const handleDelete = async (id) => {
     const token = JSON.parse(localStorage.getItem("auth_token"));
     try {
-      const res = await fetch(`${SAVED_ROUTINES_API}${id}/`, {
+      const res = await fetch(`${BACKEND}/api/routines/${id}/`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token.access}` },
       });
@@ -260,7 +258,7 @@ const SavedRoutines = () => {
     try {
       await Promise.all(
         routines.map((r) =>
-          fetch(`${SAVED_ROUTINES_API}${r.id}/`, {
+          fetch(`${BACKEND}/api/routines/${r.id}/`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token.access}` },
           })
@@ -272,7 +270,6 @@ const SavedRoutines = () => {
     }
   };
 
-  // Loading user
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
@@ -287,7 +284,6 @@ const SavedRoutines = () => {
   return (
     <>
       <NavBar user={user} onLogout={logout} />
-
       <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
         <div className="max-w-2xl mx-auto">
 
@@ -315,14 +311,14 @@ const SavedRoutines = () => {
             </div>
           </div>
 
-          {/* Error */}
+          {/* Fetch error */}
           {fetchError && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
               <p className="text-red-700 font-medium text-sm">{fetchError}</p>
             </div>
           )}
 
-          {/* Loading routines spinner */}
+          {/* Loading spinner */}
           {loadingRoutines ? (
             <div className="flex justify-center py-20">
               <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
