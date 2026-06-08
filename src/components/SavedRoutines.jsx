@@ -2,16 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import NavBar from "./Navbar";
 
-const STORAGE_KEY = "routiney:saved_routines_v1";
-
-function safeJsonParse(value, fallback) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
 function parseRoutineToTable(text) {
   const rows = [];
   const lines = text.split("\n").filter((l) => l.trim());
@@ -46,30 +36,26 @@ function parseRoutineToTable(text) {
 
 function categoryColor(name = "") {
   const n = name.toLowerCase();
-  if (/sleep|rest|nap|bed/.test(n))
-    return { bg: "#E6F1FB", text: "#0C447C", dot: "#185FA5" };
-  if (/exercise|gym|workout|walk|run|yoga/.test(n))
-    return { bg: "#EAF3DE", text: "#27500A", dot: "#3B6D11" };
-  if (/work|class|study|learn|read/.test(n))
-    return { bg: "#EEEDFE", text: "#3C3489", dot: "#534AB7" };
-  if (/eat|breakfast|lunch|dinner|meal|snack|food/.test(n))
-    return { bg: "#FAEEDA", text: "#633806", dot: "#854F0B" };
-  if (/break|relax|leisure|hobby|social/.test(n))
-    return { bg: "#E1F5EE", text: "#085041", dot: "#0F6E56" };
+  if (/sleep|rest|nap|bed/.test(n))                        return { bg: "#E6F1FB", text: "#0C447C", dot: "#185FA5" };
+  if (/exercise|gym|workout|walk|run|yoga/.test(n))         return { bg: "#EAF3DE", text: "#27500A", dot: "#3B6D11" };
+  if (/work|class|study|learn|read/.test(n))                return { bg: "#EEEDFE", text: "#3C3489", dot: "#534AB7" };
+  if (/eat|breakfast|lunch|dinner|meal|snack|food/.test(n)) return { bg: "#FAEEDA", text: "#633806", dot: "#854F0B" };
+  if (/break|relax|leisure|hobby|social/.test(n))           return { bg: "#E1F5EE", text: "#085041", dot: "#0F6E56" };
   return { bg: "#F1EFE8", text: "#444441", dot: "#888780" };
 }
 
 const LEGEND = [
-  { label: "Sleep / Rest", dot: "#185FA5" },
-  { label: "Exercise", dot: "#3B6D11" },
-  { label: "Work / Study", dot: "#534AB7" },
-  { label: "Meals", dot: "#854F0B" },
+  { label: "Sleep / Rest",    dot: "#185FA5" },
+  { label: "Exercise",        dot: "#3B6D11" },
+  { label: "Work / Study",    dot: "#534AB7" },
+  { label: "Meals",           dot: "#854F0B" },
   { label: "Break / Leisure", dot: "#0F6E56" },
-  { label: "Other", dot: "#888780" },
+  { label: "Other",           dot: "#888780" },
 ];
 
 function RoutineCard({ routine, onDelete }) {
-  const rows = parseRoutineToTable(routine.aiRoutine);
+  const [deleting, setDeleting] = useState(false);
+  const rows = parseRoutineToTable(routine.ai_routine);
   let tableHeaders = [];
   let parsedRows = [];
 
@@ -87,21 +73,26 @@ function RoutineCard({ routine, onDelete }) {
     }
   }
 
-  const formattedDate = new Date(routine.createdAt).toLocaleString(undefined, {
+  const formattedDate = new Date(routine.created_at).toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   });
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    await onDelete(routine.id);
+    setDeleting(false);
+  };
+
   return (
     <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-4 sm:p-6 border-2 border-purple-200 shadow-sm">
+
       {/* Card header */}
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           </div>
           <div>
@@ -110,19 +101,26 @@ function RoutineCard({ routine, onDelete }) {
           </div>
         </div>
         <button
-          onClick={() => onDelete(routine.id)}
-          className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 bg-white hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 bg-white hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Delete
+          {deleting ? (
+            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          {deleting ? "Deleting…" : "Delete"}
         </button>
       </div>
 
       {parsedRows.length > 0 ? (
         <>
-          {/* Legend */}
           <div className="flex flex-wrap gap-2 sm:gap-3 mb-4">
             {LEGEND.map(({ label, dot }) => (
               <span key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -131,17 +129,12 @@ function RoutineCard({ routine, onDelete }) {
               </span>
             ))}
           </div>
-
-          {/* Table */}
           <div className="bg-white rounded-xl overflow-hidden border border-purple-100 shadow-sm overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[420px]">
               <thead>
                 <tr className="bg-gradient-to-r from-purple-600 to-blue-600">
                   {tableHeaders.map((h, i) => (
-                    <th
-                      key={i}
-                      className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide whitespace-nowrap"
-                    >
+                    <th key={i} className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -152,28 +145,15 @@ function RoutineCard({ routine, onDelete }) {
                   const activityCell = row[1] || row[0] || "";
                   const colors = categoryColor(activityCell);
                   return (
-                    <tr
-                      key={ri}
-                      className={`border-b border-gray-100 last:border-0 ${
-                        ri % 2 === 0 ? "bg-white" : "bg-purple-50/30"
-                      } hover:bg-purple-50 transition-colors`}
-                    >
+                    <tr key={ri} className={`border-b border-gray-100 last:border-0 ${ri % 2 === 0 ? "bg-white" : "bg-purple-50/30"} hover:bg-purple-50 transition-colors`}>
                       {row.map((cell, ci) => (
                         <td key={ci} className="px-3 sm:px-4 py-3 align-middle">
                           {ci === 0 ? (
-                            <span className="font-mono text-xs font-medium text-gray-500 whitespace-nowrap">
-                              {cell}
-                            </span>
+                            <span className="font-mono text-xs font-medium text-gray-500 whitespace-nowrap">{cell}</span>
                           ) : ci === 1 ? (
                             <span className="flex items-center gap-2">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ background: colors.dot }}
-                              />
-                              <span
-                                className="inline-block px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap"
-                                style={{ background: colors.bg, color: colors.text }}
-                              >
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colors.dot }} />
+                              <span className="inline-block px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: colors.bg, color: colors.text }}>
                                 {cell}
                               </span>
                             </span>
@@ -192,7 +172,7 @@ function RoutineCard({ routine, onDelete }) {
       ) : (
         <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm">
           <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed break-words">
-            {routine.aiRoutine}
+            {routine.ai_routine}
           </pre>
         </div>
       )}
@@ -203,23 +183,21 @@ function RoutineCard({ routine, onDelete }) {
 const SavedRoutines = () => {
   const [user, setUser] = useState(null);
   const [routines, setRoutines] = useState([]);
+  const [loadingRoutines, setLoadingRoutines] = useState(true);
+  const [fetchError, setFetchError] = useState("");
   const navigate = useNavigate();
 
   const BLACKLIST_API = import.meta.env.VITE_BLACKLIST;
+  const SAVED_ROUTINES_API = import.meta.env.VITE_SAVED_ROUTINES;
 
-  // Auth: fetch user profile on mount
+  // Auth: fetch user on mount
   useEffect(() => {
     const raw = localStorage.getItem("auth_token");
     if (!raw) { navigate("/login"); return; }
 
     let token = null;
-    try {
-      token = JSON.parse(raw);
-    } catch {
-      localStorage.removeItem("auth_token");
-      navigate("/login");
-      return;
-    }
+    try { token = JSON.parse(raw); }
+    catch { localStorage.removeItem("auth_token"); navigate("/login"); return; }
 
     if (!token?.access) { navigate("/login"); return; }
 
@@ -228,18 +206,23 @@ const SavedRoutines = () => {
     })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => setUser(data))
-      .catch(() => {
-        localStorage.removeItem("auth_token");
-        navigate("/login");
-      });
+      .catch(() => { localStorage.removeItem("auth_token"); navigate("/login"); });
   }, []);
 
-  // Load saved routines from localStorage
+  // Fetch routines from backend once user is loaded
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed = safeJsonParse(raw, []);
-    setRoutines(Array.isArray(parsed) ? parsed : []);
-  }, []);
+    if (!user) return;
+    const token = JSON.parse(localStorage.getItem("auth_token"));
+    setLoadingRoutines(true);
+    setFetchError("");
+    fetch(SAVED_ROUTINES_API, {
+      headers: { Authorization: `Bearer ${token.access}` },
+    })
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => setRoutines(data))
+      .catch(() => setFetchError("Failed to load routines. Please refresh."))
+      .finally(() => setLoadingRoutines(false));
+  }, [user]);
 
   const logout = () => {
     const raw = localStorage.getItem("auth_token");
@@ -257,25 +240,45 @@ const SavedRoutines = () => {
     navigate("/login");
   };
 
-  const handleDelete = (id) => {
-    const updated = routines.filter((r) => r.id !== id);
-    setRoutines(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  const handleDelete = async (id) => {
+    const token = JSON.parse(localStorage.getItem("auth_token"));
+    try {
+      const res = await fetch(`${SAVED_ROUTINES_API}${id}/`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token.access}` },
+      });
+      if (!res.ok) throw new Error();
+      setRoutines((prev) => prev.filter((r) => r.id !== id));
+    } catch {
+      alert("Failed to delete routine. Please try again.");
+    }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!window.confirm("Delete all saved routines?")) return;
-    setRoutines([]);
-    localStorage.removeItem(STORAGE_KEY);
+    const token = JSON.parse(localStorage.getItem("auth_token"));
+    try {
+      await Promise.all(
+        routines.map((r) =>
+          fetch(`${SAVED_ROUTINES_API}${r.id}/`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token.access}` },
+          })
+        )
+      );
+      setRoutines([]);
+    } catch {
+      alert("Failed to clear all routines. Please try again.");
+    }
   };
 
-  // Loading state while fetching user
+  // Loading user
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading...</p>
+          <p className="text-gray-600 font-medium">Loading your workspace...</p>
         </div>
       </div>
     );
@@ -294,7 +297,9 @@ const SavedRoutines = () => {
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">Saved Routines</h2>
                 <p className="text-purple-100 text-sm">
-                  {routines.length === 0
+                  {loadingRoutines
+                    ? "Loading…"
+                    : routines.length === 0
                     ? "No routines saved yet"
                     : `${routines.length} routine${routines.length > 1 ? "s" : ""} saved`}
                 </p>
@@ -310,18 +315,27 @@ const SavedRoutines = () => {
             </div>
           </div>
 
-          {/* Empty state */}
-          {routines.length === 0 ? (
+          {/* Error */}
+          {fetchError && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+              <p className="text-red-700 font-medium text-sm">{fetchError}</p>
+            </div>
+          )}
+
+          {/* Loading routines spinner */}
+          {loadingRoutines ? (
+            <div className="flex justify-center py-20">
+              <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : routines.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-sm p-10 text-center border-2 border-dashed border-gray-200">
               <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
               <p className="text-gray-500 font-medium mb-1">No saved routines yet</p>
-              <p className="text-gray-400 text-sm">Generate a routine first and it will appear here.</p>
+              <p className="text-gray-400 text-sm">Generate a routine and click "Save Routine" to see it here.</p>
             </div>
           ) : (
             <div className="space-y-6">
