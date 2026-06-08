@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import NavBar from "./Navbar";
 
 const STORAGE_KEY = "routiney:saved_routines_v1";
@@ -200,13 +201,61 @@ function RoutineCard({ routine, onDelete }) {
 }
 
 const SavedRoutines = () => {
+  const [user, setUser] = useState(null);
   const [routines, setRoutines] = useState([]);
+  const navigate = useNavigate();
 
+  const BLACKLIST_API = import.meta.env.VITE_BLACKLIST;
+
+  // Auth: fetch user profile on mount
+  useEffect(() => {
+    const raw = localStorage.getItem("auth_token");
+    if (!raw) { navigate("/login"); return; }
+
+    let token = null;
+    try {
+      token = JSON.parse(raw);
+    } catch {
+      localStorage.removeItem("auth_token");
+      navigate("/login");
+      return;
+    }
+
+    if (!token?.access) { navigate("/login"); return; }
+
+    fetch(import.meta.env.VITE_USERME, {
+      headers: { Authorization: `Bearer ${token.access}` },
+    })
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => setUser(data))
+      .catch(() => {
+        localStorage.removeItem("auth_token");
+        navigate("/login");
+      });
+  }, []);
+
+  // Load saved routines from localStorage
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = safeJsonParse(raw, []);
     setRoutines(Array.isArray(parsed) ? parsed : []);
   }, []);
+
+  const logout = () => {
+    const raw = localStorage.getItem("auth_token");
+    localStorage.removeItem("auth_token");
+    if (raw) {
+      try {
+        const token = JSON.parse(raw);
+        fetch(BLACKLIST_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: token?.refresh }),
+        }).catch((err) => console.error("Error blacklisting token:", err));
+      } catch {}
+    }
+    navigate("/login");
+  };
 
   const handleDelete = (id) => {
     const updated = routines.filter((r) => r.id !== id);
@@ -220,9 +269,22 @@ const SavedRoutines = () => {
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  // Loading state while fetching user
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <NavBar />
+      <NavBar user={user} onLogout={logout} />
+
       <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
         <div className="max-w-2xl mx-auto">
 
