@@ -121,10 +121,12 @@ export default function Navbar({ user, onLogout }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
+                    <Link to = "/savedRoutines">
                     <div>
                       <p className="font-semibold text-gray-800">My Routines</p>
-                      <p className="text-xs text-gray-500">View saved schedules</p>
+                      {/* <p className="text-xs text-gray-500">View saved schedules</p> */}
                     </div>
+                    </Link>
                   </button>
 
                   <button
