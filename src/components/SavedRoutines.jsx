@@ -218,7 +218,7 @@ const SavedRoutines = () => {
       return;
     }
 
-    fetch(`${BACKEND}/api/user/me/`, {
+    fetch(`${BACKEND}/api/users/me/`, {
       headers: authHeader(),
     })
       .then((r) => {
