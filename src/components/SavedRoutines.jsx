@@ -4,7 +4,15 @@ import NavBar from "./Navbar";
 
 const BACKEND = "https://ai-routine-generator-backend-1.onrender.com";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── API endpoints ─────────────────────────────────────────────────────────────
+const API = {
+  userMe:      `${BACKEND}/users/me/`,
+  routines:    `${BACKEND}/api/routines/`,
+  routineById: (id) => `${BACKEND}/api/routines/${id}/`,
+  blacklist:   `${BACKEND}/token/blacklist/`,
+};
+
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 function getToken() {
   try {
@@ -208,21 +216,16 @@ const SavedRoutines = () => {
   const [fetchError, setFetchError] = useState("");
   const navigate = useNavigate();
 
-  // ── 1. Auth check on mount ──────────────────────────────────────────────────
+  // ── 1. Auth check on mount ────────────────────────────────────────────────
   useEffect(() => {
     const token = getToken();
-
-    // No token at all → go to login
     if (!token?.access) {
       navigate("/login");
       return;
     }
 
-    fetch(`${BACKEND}/api/users/me/`, {
-      headers: authHeader(),
-    })
+    fetch(API.userMe, { headers: authHeader() })
       .then((r) => {
-        // 401 = genuinely not authenticated → redirect
         if (r.status === 401) {
           localStorage.removeItem("auth_token");
           navigate("/login");
@@ -231,26 +234,20 @@ const SavedRoutines = () => {
         if (!r.ok) throw new Error("Server error");
         return r.json();
       })
-      .then((data) => {
-        if (data) setUser(data);
-      })
+      .then((data) => { if (data) setUser(data); })
       .catch(() => {
-        // Network error — don't wipe the token, just show an error
         setFetchError("Could not reach the server. Please check your connection.");
       })
       .finally(() => setLoadingUser(false));
   }, []);
 
-  // ── 2. Fetch routines once user is confirmed ────────────────────────────────
+  // ── 2. Fetch routines once user is confirmed ──────────────────────────────
   useEffect(() => {
     if (!user) return;
-
     setLoadingRoutines(true);
     setFetchError("");
 
-    fetch(`${BACKEND}/api/routines/`, {
-      headers: authHeader(),
-    })
+    fetch(API.routines, { headers: authHeader() })
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -260,12 +257,12 @@ const SavedRoutines = () => {
       .finally(() => setLoadingRoutines(false));
   }, [user]);
 
-  // ── logout ──────────────────────────────────────────────────────────────────
+  // ── logout ────────────────────────────────────────────────────────────────
   const logout = () => {
     const token = getToken();
     localStorage.removeItem("auth_token");
     if (token?.refresh) {
-      fetch(`${BACKEND}/api/token/blacklist/`, {
+      fetch(API.blacklist, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh: token.refresh }),
@@ -274,10 +271,10 @@ const SavedRoutines = () => {
     navigate("/login");
   };
 
-  // ── delete one ──────────────────────────────────────────────────────────────
+  // ── delete one ────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(`${BACKEND}/api/routines/${id}/`, {
+      const res = await fetch(API.routineById(id), {
         method: "DELETE",
         headers: authHeader(),
       });
@@ -288,13 +285,13 @@ const SavedRoutines = () => {
     }
   };
 
-  // ── delete all ──────────────────────────────────────────────────────────────
+  // ── delete all ────────────────────────────────────────────────────────────
   const handleClearAll = async () => {
     if (!window.confirm("Delete all saved routines?")) return;
     try {
       await Promise.all(
         routines.map((r) =>
-          fetch(`${BACKEND}/api/routines/${r.id}/`, {
+          fetch(API.routineById(r.id), {
             method: "DELETE",
             headers: authHeader(),
           })
@@ -306,7 +303,7 @@ const SavedRoutines = () => {
     }
   };
 
-  // ── loading user ────────────────────────────────────────────────────────────
+  // ── loading user ──────────────────────────────────────────────────────────
   if (loadingUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
@@ -318,10 +315,10 @@ const SavedRoutines = () => {
     );
   }
 
-  // ── render ──────────────────────────────────────────────────────────────────
+  // ── render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <NavBar user={user} onLogout={logout} />
+      {user && <NavBar user={user} onLogout={logout} />}
       <div className="min-h-screen bg-gray-100 p-3 sm:p-6">
         <div className="max-w-2xl mx-auto">
 
