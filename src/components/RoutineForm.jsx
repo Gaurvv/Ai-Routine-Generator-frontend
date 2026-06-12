@@ -3,6 +3,11 @@ import axios from "axios";
 
 const BACKEND = "https://ai-routine-generator-backend-1.onrender.com";
 
+const getAuthHeader = () => {
+  const token = JSON.parse(localStorage.getItem("auth_token") || "{}");
+  return { Authorization: `Bearer ${token?.access}` };
+};
+
 export default function RoutineForm({ user }) {
   const [data, setData] = useState({
     wake_time: "",
@@ -40,7 +45,10 @@ export default function RoutineForm({ user }) {
 
   const updateTask = (i, key, val) => {
     const tasks = [...data.tasks];
-    tasks[i] = { ...tasks[i], [key]: val };
+    tasks[i] = {
+      ...tasks[i],
+      [key]: key === "duration_hours" ? parseFloat(val) || "" : val,
+    };
     setData({ ...data, tasks });
   };
 
@@ -48,9 +56,9 @@ export default function RoutineForm({ user }) {
     const rows = [];
     const lines = text.split("\n").filter((l) => l.trim());
     for (const line of lines) {
-      const pipeMatch = line.match(/^\|(.+)\|$/);
+      const pipeMatch = line.match(/^\|(.+)/);
       if (pipeMatch) {
-        const cells = pipeMatch[1].split("|").map((c) => c.trim());
+        const cells = pipeMatch[1].split("|").map((c) => c.trim()).filter((c) => c !== "");
         if (cells.every((c) => /^[-:]+$/.test(c))) continue;
         rows.push(cells);
         continue;
@@ -99,17 +107,28 @@ export default function RoutineForm({ user }) {
     setError("");
     setSaved(false);
     setSaveError("");
+    setAiRoutine("");
+    setParsedRows([]);
+    setTableHeaders([]);
+
     if (!data.wake_time || !data.sleep_time) {
-      setError("Please set wake and sleep times");
+      setError("Please set wake and sleep times.");
       return;
     }
+
+    const hasEmptyFixed = data.fixed_works.some((f) => !f.name || !f.start_time || !f.end_time);
+    const hasEmptyTask = data.tasks.some((t) => !t.name || !t.duration_hours);
+    if (hasEmptyFixed || hasEmptyTask) {
+      setError("Please fill in all fields for tasks and fixed schedules.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const token = JSON.parse(localStorage.getItem("auth_token"));
       const response = await axios.post(
         `${BACKEND}/api/routine/generate/`,
         data,
-        { headers: { Authorization: `Bearer ${token.access}` } }
+        { headers: getAuthHeader() }
       );
       if (response.data.success) {
         const raw = response.data.ai_routine;
@@ -127,9 +146,6 @@ export default function RoutineForm({ user }) {
             setTableHeaders(["Time", "Activity", "Notes"]);
             setParsedRows(rows);
           }
-        } else {
-          setTableHeaders([]);
-          setParsedRows([]);
         }
       } else {
         setError("Failed to generate routine. Please try again.");
@@ -146,11 +162,10 @@ export default function RoutineForm({ user }) {
     setSaveError("");
     setSaving(true);
     try {
-      const token = JSON.parse(localStorage.getItem("auth_token"));
       await axios.post(
         `${BACKEND}/api/routines/`,
         { ai_routine: aiRoutine },
-        { headers: { Authorization: `Bearer ${token.access}` } }
+        { headers: getAuthHeader() }
       );
       setSaved(true);
     } catch (err) {
