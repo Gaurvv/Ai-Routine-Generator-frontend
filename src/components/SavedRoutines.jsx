@@ -4,13 +4,28 @@ import NavBar from "./Navbar";
 
 const BACKEND = "https://ai-routine-generator-backend-1.onrender.com";
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function getToken() {
+  try {
+    return JSON.parse(localStorage.getItem("auth_token") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function authHeader() {
+  const token = getToken();
+  return token?.access ? { Authorization: `Bearer ${token.access}` } : {};
+}
+
 function parseRoutineToTable(text) {
   const rows = [];
   const lines = text.split("\n").filter((l) => l.trim());
   for (const line of lines) {
-    const pipeMatch = line.match(/^\|(.+)\|$/);
+    const pipeMatch = line.match(/^\|(.+)/);
     if (pipeMatch) {
-      const cells = pipeMatch[1].split("|").map((c) => c.trim());
+      const cells = pipeMatch[1].split("|").map((c) => c.trim()).filter(Boolean);
       if (cells.every((c) => /^[-:]+$/.test(c))) continue;
       rows.push(cells);
       continue;
@@ -54,6 +69,8 @@ const LEGEND = [
   { label: "Break / Leisure", dot: "#0F6E56" },
   { label: "Other",           dot: "#888780" },
 ];
+
+// ── RoutineCard ───────────────────────────────────────────────────────────────
 
 function RoutineCard({ routine, onDelete }) {
   const [deleting, setDeleting] = useState(false);
@@ -181,69 +198,88 @@ function RoutineCard({ routine, onDelete }) {
   );
 }
 
+// ── SavedRoutines ─────────────────────────────────────────────────────────────
+
 const SavedRoutines = () => {
   const [user, setUser] = useState(null);
   const [routines, setRoutines] = useState([]);
-  const [loadingRoutines, setLoadingRoutines] = useState(true);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [loadingRoutines, setLoadingRoutines] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const navigate = useNavigate();
 
-  // Auth: fetch user on mount
+  // ── 1. Auth check on mount ──────────────────────────────────────────────────
   useEffect(() => {
-    const raw = localStorage.getItem("auth_token");
-    if (!raw) { navigate("/login"); return; }
+    const token = getToken();
 
-    let token = null;
-    try { token = JSON.parse(raw); }
-    catch { localStorage.removeItem("auth_token"); navigate("/login"); return; }
-
-    if (!token?.access) { navigate("/login"); return; }
+    // No token at all → go to login
+    if (!token?.access) {
+      navigate("/login");
+      return;
+    }
 
     fetch(`${BACKEND}/api/user/me/`, {
-      headers: { Authorization: `Bearer ${token.access}` },
+      headers: authHeader(),
     })
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data) => setUser(data))
-      .catch(() => { localStorage.removeItem("auth_token"); navigate("/login"); });
+      .then((r) => {
+        // 401 = genuinely not authenticated → redirect
+        if (r.status === 401) {
+          localStorage.removeItem("auth_token");
+          navigate("/login");
+          return null;
+        }
+        if (!r.ok) throw new Error("Server error");
+        return r.json();
+      })
+      .then((data) => {
+        if (data) setUser(data);
+      })
+      .catch(() => {
+        // Network error — don't wipe the token, just show an error
+        setFetchError("Could not reach the server. Please check your connection.");
+      })
+      .finally(() => setLoadingUser(false));
   }, []);
 
-  // Fetch routines once user is loaded
+  // ── 2. Fetch routines once user is confirmed ────────────────────────────────
   useEffect(() => {
     if (!user) return;
-    const token = JSON.parse(localStorage.getItem("auth_token"));
+
     setLoadingRoutines(true);
     setFetchError("");
+
     fetch(`${BACKEND}/api/routines/`, {
-      headers: { Authorization: `Bearer ${token.access}` },
+      headers: authHeader(),
     })
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data) => setRoutines(data))
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((data) => setRoutines(Array.isArray(data) ? data : []))
       .catch(() => setFetchError("Failed to load routines. Please refresh."))
       .finally(() => setLoadingRoutines(false));
   }, [user]);
 
+  // ── logout ──────────────────────────────────────────────────────────────────
   const logout = () => {
-    const raw = localStorage.getItem("auth_token");
+    const token = getToken();
     localStorage.removeItem("auth_token");
-    if (raw) {
-      try {
-        const token = JSON.parse(raw);
-        fetch(`${BACKEND}/api/token/blacklist/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh: token?.refresh }),
-        }).catch((err) => console.error("Error blacklisting token:", err));
-      } catch {}
+    if (token?.refresh) {
+      fetch(`${BACKEND}/api/token/blacklist/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh: token.refresh }),
+      }).catch((err) => console.error("Error blacklisting token:", err));
     }
     navigate("/login");
   };
 
+  // ── delete one ──────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
-    const token = JSON.parse(localStorage.getItem("auth_token"));
     try {
       const res = await fetch(`${BACKEND}/api/routines/${id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token.access}` },
+        headers: authHeader(),
       });
       if (!res.ok) throw new Error();
       setRoutines((prev) => prev.filter((r) => r.id !== id));
@@ -252,15 +288,15 @@ const SavedRoutines = () => {
     }
   };
 
+  // ── delete all ──────────────────────────────────────────────────────────────
   const handleClearAll = async () => {
     if (!window.confirm("Delete all saved routines?")) return;
-    const token = JSON.parse(localStorage.getItem("auth_token"));
     try {
       await Promise.all(
         routines.map((r) =>
           fetch(`${BACKEND}/api/routines/${r.id}/`, {
             method: "DELETE",
-            headers: { Authorization: `Bearer ${token.access}` },
+            headers: authHeader(),
           })
         )
       );
@@ -270,7 +306,8 @@ const SavedRoutines = () => {
     }
   };
 
-  if (!user) {
+  // ── loading user ────────────────────────────────────────────────────────────
+  if (loadingUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
@@ -281,6 +318,7 @@ const SavedRoutines = () => {
     );
   }
 
+  // ── render ──────────────────────────────────────────────────────────────────
   return (
     <>
       <NavBar user={user} onLogout={logout} />
@@ -318,12 +356,12 @@ const SavedRoutines = () => {
             </div>
           )}
 
-          {/* Loading spinner */}
+          {/* Loading routines spinner */}
           {loadingRoutines ? (
             <div className="flex justify-center py-20">
               <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-          ) : routines.length === 0 ? (
+          ) : routines.length === 0 && !fetchError ? (
             <div className="bg-white rounded-2xl shadow-sm p-10 text-center border-2 border-dashed border-gray-200">
               <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
